@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ระบบรายรับรายจ่ายน่ารัก</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+  <style>
+    body {
+      background: linear-gradient(to right, #ffe4f0, #e0f7fa);
+      font-family: 'Comic Sans MS', cursive, sans-serif;
+    }
+    h1, h2 {
+      color: #f78da7;
+      text-shadow: 1px 1px 2px #fff;
+    }
+    .cute-card {
+      border: 3px dashed #f9a8d4;
+      background-color: rgba(255, 255, 255, 0.85);
+    }
+    .btn-cute {
+      background: linear-gradient(to right, #f9a8d4, #a5f3fc);
+      border: 2px solid #fce7f3;
+      box-shadow: 0 0 10px #faccf1;
+    }
+    .btn-cute:hover {
+      background: linear-gradient(to right, #a5f3fc, #f9a8d4);
+    }
+  </style>
+</head>
+<body class="min-h-screen">
+  <div class="max-w-5xl mx-auto p-6">
+    <h1 class="text-5xl font-bold text-center mb-8">🌸 Franck&sa Family</h1>
+
+    <form id="expense-form" class="cute-card p-6 rounded-xl shadow mb-6">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <input type="text" id="description" placeholder="📝 รายละเอียด" class="border p-2 rounded" required />
+        <input type="number" id="amount" placeholder="💰 จำนวนเงิน (บวก=รับ, ลบ=จ่าย)" class="border p-2 rounded" required />
+      </div>
+      <button type="submit" class="mt-4 text-white py-2 px-4 rounded btn-cute">✨ เพิ่มข้อมูล</button>
+    </form>
+
+    <div class="cute-card p-6 rounded-xl shadow mb-6">
+      <h2 class="text-2xl font-bold mb-4">💖 สรุปยอดรวม</h2>
+      <p id="total" class="text-2xl text-pink-600 font-semibold">0 บาท</p>
+    </div>
+
+    <div class="cute-card p-6 rounded-xl shadow mb-6">
+      <h2 class="text-2xl font-bold mb-4">📒 ประวัติรายรับรายจ่าย</h2>
+      <ul id="transaction-list" class="space-y-2"></ul>
+    </div>
+
+    <div class="cute-card p-6 rounded-xl shadow mb-6">
+      <h2 class="text-2xl font-bold mb-4">🧁 รายการแยกตามหมวด</h2>
+      <div id="summary-text" class="text-gray-800 text-lg space-y-1"></div>
+    </div>
+
+    <div class="cute-card p-6 rounded-xl shadow">
+      <h2 class="text-2xl font-bold mb-4">🎀 กราฟแสดงผล</h2>
+      <canvas id="expense-chart" height="100"></canvas>
+    </div>
+  </div>
+
+  <!-- JavaScript remains unchanged -->
+  <script>
+    const form = document.getElementById('expense-form');
+    const list = document.getElementById('transaction-list');
+    const totalEl = document.getElementById('total');
+    const chartCtx = document.getElementById('expense-chart').getContext('2d');
+    const summaryText = document.getElementById('summary-text');
+
+    let transactions = [];
+
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+
+      const desc = document.getElementById('description').value;
+      const amt = parseFloat(document.getElementById('amount').value);
+      if (!desc || isNaN(amt)) return;
+
+      transactions.push({ desc, amt });
+      document.getElementById('description').value = '';
+      document.getElementById('amount').value = '';
+
+      updateUI();
+    });
+
+    function updateUI() {
+      list.innerHTML = '';
+      summaryText.innerHTML = '';
+      let total = 0;
+
+      transactions.forEach((t) => {
+        const li = document.createElement('li');
+        li.className = 'flex justify-between bg-pink-100 bg-opacity-60 p-2 rounded';
+        li.innerHTML = `
+          <span>${t.desc}</span>
+          <span class="${t.amt >= 0 ? 'text-green-600' : 'text-red-600'}">${t.amt.toLocaleString()} บาท</span>
+        `;
+        list.appendChild(li);
+        total += t.amt;
+      });
+
+      totalEl.textContent = total.toLocaleString() + ' บาท';
+      updateChart();
+      updateSummaryText();
+    }
+
+    function updateSummaryText() {
+      const incomeItems = transactions.filter(t => t.amt >= 0);
+      const expenseItems = transactions.filter(t => t.amt < 0);
+
+      if (incomeItems.length > 0) {
+        const incomeHeader = document.createElement('p');
+        incomeHeader.className = 'font-bold text-green-700';
+        incomeHeader.textContent = '📥 รายรับ';
+        summaryText.appendChild(incomeHeader);
+        incomeItems.forEach(t => {
+          const p = document.createElement('p');
+          p.className = 'text-green-600';
+          p.textContent = `${t.desc}: +${t.amt.toLocaleString()} บาท`;
+          summaryText.appendChild(p);
+        });
+      }
+
+      if (expenseItems.length > 0) {
+        const expenseHeader = document.createElement('p');
+        expenseHeader.className = 'font-bold text-red-700 mt-4';
+        expenseHeader.textContent = '📤 รายจ่าย';
+        summaryText.appendChild(expenseHeader);
+        expenseItems.forEach(t => {
+          const p = document.createElement('p');
+          p.className = 'text-red-600';
+          p.textContent = `${t.desc}: -${Math.abs(t.amt).toLocaleString()} บาท`;
+          summaryText.appendChild(p);
+        });
+      }
+    }
+
+    let expenseChart = new Chart(chartCtx, {
+      type: 'pie',
+      data: {
+        labels: [],
+        datasets: [{
+          label: 'รายรับรายจ่าย',
+          data: [],
+          backgroundColor: ['#bef264', '#fb7185'],
+        }]
+      }
+    });
+
+    function updateChart() {
+      const income = transactions.filter(t => t.amt >= 0).reduce((a, b) => a + b.amt, 0);
+      const expense = Math.abs(transactions.filter(t => t.amt < 0).reduce((a, b) => a + b.amt, 0));
+
+      expenseChart.data.labels = ['รายรับ', 'รายจ่าย'];
+      expenseChart.data.datasets[0].data = [income, expense];
+      expenseChart.update();
+    }
+  </script>
+</body>
+</html>
